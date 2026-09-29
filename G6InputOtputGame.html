@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Chip's Lab Adventure: Hardware & Storage Quiz!</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800&family=Bungee&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --sky:#0d1829;
+  --ink:#e0f2fe;
+  --ink-soft:#88a2c2;
+  --card:#132238;
+  --card-edge:#29517b;
+  --card-drop:#0a1320;
+  --opt:#1c3250;
+  --opt-edge:#345c8d;
+  --opt-hover:#28466e;
+  --badge-a:#00f0ff;
+  --badge-b:#0088cc;
+  --chip:rgba(19, 34, 56, 0.92);
+  --chip-edge:#29517b;
+  --track:#09121f;
+  --ok-a:#20e371; --ok-b:#10a34c; --ok-edge:#0c7536;
+  --bad-a:#ff5252; --bad-b:#c62828; --bad-edge:#8e1c1c;
+  --sun:#00f0ff; --sun-deep:#0088cc;
+  --leaf:#00f0ff;
+}
+[hidden]{display:none!important}
+body{
+  margin:0;height:100%;overflow:hidden;
+  background:var(--sky);
+  font-family:"Fredoka","Segoe UI",Tahoma,sans-serif;
+  color:var(--ink);
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;-webkit-user-select:none;
+}
+body.no3d{background:linear-gradient(#08101d 0%,#132238 100%)}
+#stage{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none}
+
+/* Flash overlays */
+.flash{position:fixed;inset:0;pointer-events:none;opacity:0}
+.flash.ok{animation:flashOk .95s ease-out}
+.flash.bad{animation:flashBad .7s ease-out}
+@keyframes flashOk{0%{opacity:0;box-shadow:inset 0 0 0 0 rgba(32,227,113,0)}25%{opacity:1;box-shadow:inset 0 0 150px 40px rgba(32,227,113,.5)}100%{opacity:0;box-shadow:inset 0 0 150px 40px rgba(32,227,113,0)}}
+@keyframes flashBad{0%{opacity:0}25%{opacity:1;box-shadow:inset 0 0 120px 26px rgba(255,82,82,.42)}100%{opacity:0;box-shadow:inset 0 0 120px 26px rgba(255,82,82,0)}}
+
+/* Top HUD */
+.hud{
+  position:fixed;left:12px;right:12px;
+  top:calc(env(safe-area-inset-top,0px) + 10px);
+  display:flex;align-items:center;gap:10px;
+  opacity:0;transform:translateY(-14px);pointer-events:none;
+  transition:opacity .5s,transform .5s;
+}
+.hud.on{opacity:1;transform:none;pointer-events:auto}
+.chip{
+  background:var(--chip);border:2px solid var(--chip-edge);border-radius:18px;
+  box-shadow:0 4px 0 rgba(0,0,0,.4),0 10px 18px rgba(0,0,0,.3);
+  padding:6px 12px;display:flex;align-items:center;gap:8px;color:var(--ink);
+}
+.score svg{width:26px;height:26px;flex:none}
+.score span{font-weight:700;font-size:14px;color:var(--ink-soft)}
+.score b{font-family:"Bungee","Fredoka",sans-serif;font-weight:400;font-size:26px;line-height:1;min-width:1.4ch;text-align:center;color:#00f0ff}
+.score.bump{animation:bump .5s}
+@keyframes bump{40%{transform:scale(1.16)}}
+.prog{flex:1;flex-direction:column;align-items:stretch;gap:5px;padding:6px 14px 8px;min-width:0}
+.prog span{font-weight:800;font-size:14px;white-space:nowrap;color:#00f0ff}
+.track{height:10px;border-radius:99px;background:var(--track);overflow:hidden;box-shadow:inset 0 1px 2px rgba(0,0,0,.5)}
+.track i{display:block;height:100%;width:0;border-radius:99px;background:linear-gradient(180deg,#00f0ff,var(--sun-deep));box-shadow:0 0 10px #00f0ff;transition:width .6s cubic-bezier(.3,1.3,.5,1)}
+.round{
+  flex:none;width:46px;height:46px;border-radius:50%;
+  border:2px solid var(--chip-edge);background:var(--chip);color:var(--ink);
+  font-size:22px;line-height:1;cursor:pointer;
+  box-shadow:0 4px 0 rgba(0,0,0,.4),0 10px 18px rgba(0,0,0,.3);
+  display:grid;place-items:center;
+}
+.round:active{transform:translateY(3px);box-shadow:0 1px 0 rgba(0,0,0,.4)}
+
+/* Feedback popups */
+.toast{
+  position:fixed;left:0;right:0;top:20%;text-align:center;pointer-events:none;opacity:0;
+  font-family:"Bungee","Fredoka",sans-serif;font-size:clamp(36px,10vw,68px);line-height:1;color:#fff;
+  -webkit-text-stroke:6px #10a34c;paint-order:stroke fill;
+  text-shadow:0 6px 0 #0c7536,0 0 20px rgba(32,227,113,.6);
+}
+.toast.bad-toast{
+  -webkit-text-stroke:6px #c62828;
+  text-shadow:0 6px 0 #8e1c1c,0 0 20px rgba(255,82,82,.6);
+}
+.toast.show{animation:pop 1.25s cubic-bezier(.2,1.2,.4,1) forwards}
+@keyframes pop{0%{opacity:0;transform:scale(.3) rotate(-6deg)}22%{opacity:1;transform:scale(1.18) rotate(3deg)}38%{transform:scale(1) rotate(0)}80%{opacity:1}100%{opacity:0;transform:translateY(-24px) scale(1)}}
+
+/* Question cards and panels */
+.panel{
+  position:fixed;left:0;right:0;margin:0 auto;
+  bottom:calc(env(safe-area-inset-bottom,0px) + 12px);
+  width:min(760px,calc(100% - 24px));
+  max-height:58vh;overflow:auto;
+  background:var(--card);border:3px solid var(--card-edge);border-radius:28px;
+  box-shadow:0 8px 0 var(--card-drop),0 22px 34px rgba(0,0,0,.6);
+  padding:16px 16px 12px;
+  transition:opacity .35s,transform .35s;
+}
+.panel::before{
+  content:"";position:absolute;inset:0 0 auto 0;height:46%;border-radius:24px 24px 60% 60%/24px 24px 30px 30px;
+  background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,0));pointer-events:none;
+}
+.panel>*{position:relative}
+.card.away{opacity:0;transform:translateY(24px);pointer-events:none}
+.card.shake{animation:shake .45s}
+@keyframes shake{20%{transform:translateX(-9px)}40%{transform:translateX(8px)}60%{transform:translateX(-5px)}80%{transform:translateX(3px)}}
+
+.q{margin:0 2px 12px;font-size:clamp(18px,4.8vw,25px);line-height:1.55;font-weight:800;color:var(--ink)}
+.opts{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:10px}
+.opt{
+  display:flex;align-items:center;gap:12px;width:100%;min-height:56px;
+  padding:8px 12px;text-align:start;cursor:pointer;
+  font:700 clamp(15px,4vw,20px)/1.5 "Fredoka",sans-serif;color:var(--ink);
+  background:var(--opt);border:3px solid var(--opt-edge);border-radius:20px;
+  box-shadow:0 5px 0 var(--opt-edge);
+  transition:transform .12s,box-shadow .12s,background .2s;
+}
+.opt:hover:not(:disabled){background:var(--opt-hover);transform:translateY(-1px)}
+.opt:active:not(:disabled){transform:translateY(4px);box-shadow:0 1px 0 var(--opt-edge)}
+.badge{
+  flex:none;width:38px;height:38px;border-radius:50%;display:grid;place-items:center;
+  font:400 22px/1 "Bungee","Fredoka",sans-serif;color:#fff;
+  background:radial-gradient(circle at 35% 28%,var(--badge-a),var(--badge-b));
+  box-shadow:inset 0 -3px 0 rgba(0,0,0,.3);
+}
+.opt:disabled{cursor:default}
+.opt:disabled:not(.good):not(.bad){opacity:.4}
+.opt.good{color:#fff;background:linear-gradient(180deg,var(--ok-a),var(--ok-b));border-color:var(--ok-edge);box-shadow:0 5px 0 var(--ok-edge);animation:goodPop .5s}
+.opt.bad{color:#fff;background:linear-gradient(180deg,var(--bad-a),var(--bad-b));border-color:var(--bad-edge);box-shadow:0 5px 0 var(--bad-edge)}
+.opt.good .badge,.opt.bad .badge{background:rgba(255,255,255,.28)}
+@keyframes goodPop{40%{transform:scale(1.04)}}
+.status{margin:10px 4px 0;min-height:26px;font-weight:800;font-size:16px;color:var(--ink-soft)}
+.status.ok{color:#20e371}
+.status.bad{color:#ff5252}
+
+.btn{
+  display:block;width:100%;margin-top:14px;padding:12px 18px;cursor:pointer;
+  font:400 clamp(22px,5.5vw,28px)/1.3 "Bungee","Fredoka",sans-serif;color:#08101d;
+  background:linear-gradient(180deg,#00f0ff,#00a8ff);
+  border:3px solid #0088cc;border-radius:20px;box-shadow:0 6px 0 #006699;
+  text-shadow:0 1px 0 rgba(255,255,255,.4);
+}
+.btn:hover{filter:brightness(1.1)}
+.btn:active{transform:translateY(5px);box-shadow:0 1px 0 #006699}
+
+.start,.win{text-align:center;padding-top:18px}
+.title{margin:0;font:400 clamp(32px,8vw,50px)/1.1 "Bungee","Fredoka",sans-serif;color:#00f0ff;text-shadow:0 0 15px rgba(0,240,255,.4)}
+.sub{margin:6px auto 0;max-width:36ch;font-weight:700;font-size:clamp(16px,4vw,19px);line-height:1.6;color:var(--ink-soft)}
+.win h2{margin:4px 0 0;font:400 clamp(26px,7vw,38px)/1.4 "Bungee","Fredoka",sans-serif;color:#00f0ff}
+.stars{display:flex;justify-content:center;gap:8px;margin:6px 0 2px}
+.stars svg{width:clamp(44px,12vw,60px);height:auto;filter:drop-shadow(0 0 10px rgba(0,240,255,.5));transform:scale(0)}
+.win:not([hidden]) .stars svg{animation:starIn .7s cubic-bezier(.2,1.5,.4,1) forwards}
+.win:not([hidden]) .stars svg:nth-child(2){animation-delay:.18s;margin-top:-10px}
+.win:not([hidden]) .stars svg:nth-child(1){animation-delay:.36s}
+.win:not([hidden]) .stars svg:nth-child(3){animation-delay:0s}
+@keyframes starIn{0%{transform:scale(0) rotate(-40deg)}100%{transform:scale(1) rotate(0)}}
+.final{margin:4px 0 0;font-weight:800;font-size:clamp(18px,4.7vw,22px)}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+}
+</style>
+</head>
+<body>
+<canvas id="stage" aria-hidden="true"></canvas>
+<div class="flash" id="flash" aria-hidden="true"></div>
+
+<header class="hud" id="hud">
+  <div class="chip score" id="scoreChip">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.2l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.100 6.100 20.200l1.200-6.500L2.500 9.100l6.600-.9z" fill="#00f0ff" stroke="#0088cc" stroke-width="1.400" stroke-linejoin="round"/></svg>
+    <span>SCORE</span><b id="score">0</b>
+  </div>
+  <div class="chip prog">
+    <span id="progText">Level 1 - Q1/10</span>
+    <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0" id="progBar"><i id="progFill"></i></div>
+  </div>
+  <button class="round" id="snd" type="button" aria-label="Toggle sound" aria-pressed="false">🔊</button>
+</header>
+
+<div class="toast" id="toast" aria-hidden="true">GOT IT!</div>
+
+<main class="panel start" id="startPanel">
+  <h1 class="title">CHIP'S LAB QUEST!</h1>
+  <p class="sub">Explore the Motherboard Lab with Chip! Master hardware, input/output, and storage capacities across 2 levels!</p>
+  <button class="btn" id="go" type="button">START LAB MISSION</button>
+</main>
+
+<section class="panel card" id="card" hidden aria-live="polite">
+  <h2 class="q" id="qtext"></h2>
+  <div class="opts" id="opts" role="group" aria-labelledby="qtext"></div>
+  <p class="status" id="status"></p>
+</section>
+
+<section class="panel win" id="winPanel" hidden>
+  <div class="stars" aria-hidden="true">
+    <svg viewBox="0 0 24 24"><path d="M12 2.2l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.100 6.100 20.200l1.200-6.500L2.500 9.100l6.600-.9z" fill="#00f0ff" stroke="#0088cc" stroke-width="1.200" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2.2l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.100 6.100 20.200l1.200-6.500L2.500 9.100l6.600-.9z" fill="#00f0ff" stroke="#0088cc" stroke-width="1.200" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 24 24"><path d="M12 2.2l2.9 6 6.6.9-4.8 4.6 1.2 6.5L12 17.100 6.100 20.200l1.200-6.500L2.500 9.100l6.600-.9z" fill="#00f0ff" stroke="#0088cc" stroke-width="1.200" stroke-linejoin="round"/></svg>
+  </div>
+  <h2 id="winTitle">LEVEL COMPLETED!</h2>
+  <p class="sub" id="winSub">You navigated the motherboard circuit!</p>
+  <p class="final" id="finalScore"></p>
+  <button class="btn" id="again" type="button">NEXT LEVEL</button>
+</section>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+"use strict";
+var reduce = window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches;
+var $ = function(id){ return document.getElementById(id); };
+
+/* ============ Game Logic & Varied Questions ============ */
+var QUESTIONS_PER_LEVEL = 10;
+var currentLevel = 1;
+
+// Level 1 Pool: Device Roles, Categorization, and PDF Device Identification
+var LEVEL_1_POOL = [
+  {
+    q: "What is the primary function of an Input Device?",
+    o: ["Send data into the computer system", "Show processed data to the user", "Store data permanently"],
+    ans: 0
+  },
+  {
+    q: "What is the main purpose of an Output Device?",
+    o: ["Show processed data to the user", "Send data into the computer system", "Store data permanently"],
+    ans: 0
+  },
+  {
+    q: "What is the role of Storage Devices?",
+    o: ["Store data permanently", "Send data into the computer system", "Display images on a screen"],
+    ans: 0
+  },
+  {
+    q: "Which of the following is an Input Device according to the guide?",
+    o: ["Barcode Reader", "Projector", "Wireless Earphones"],
+    ans: 0
+  },
+  {
+    q: "Which device is listed as an Output Device?",
+    o: ["Projector", "Joystick", "Scanner"],
+    ans: 0
+  },
+  {
+    q: "Which pair consists only of Input Devices?",
+    o: ["Keyboard and Mouse", "Speakers and Microphone", "Monitor and Webcam"],
+    ans: 0
+  },
+  {
+    q: "Is a Scanner classified as an Input device or an Output device?",
+    o: ["Input Device", "Output Device", "Storage Device"],
+    ans: 0
+  },
+  {
+    q: "Which of the following is listed as an Output device?",
+    o: ["Wireless Earphones", "Joystick", "Microphone"],
+    ans: 0
+  },
+  {
+    q: "Which helper device is used to input voice/audio into a computer?",
+    o: ["Microphone", "Speakers", "Headphones"],
+    ans: 0
+  },
+  {
+    q: "Where does a Barcode Reader send the scanned item information?",
+    o: ["Into the computer system (Input)", "Out onto paper (Output)", "Directly to iCloud (Storage)"],
+    ans: 0
+  },
+  {
+    q: "A Joystick is classified as which type of computer helper?",
+    o: ["Input Device", "Output Device", "Internal Drive"],
+    ans: 0
+  },
+  {
+    q: "Which device displays video or computer screens onto a wall or large screen?",
+    o: ["Projector", "Scanner", "Hard Disk Drive"],
+    ans: 0
+  }
+];
+
+// Level 2 Pool: Cloud Storage Free Tiers, Internal vs External Drives, Capacities & Data Units
+var LEVEL_2_POOL = [
+  {
+    q: "How much free cloud storage space does Google Drive provide?",
+    o: ["15 GB", "5 GB", "2 TB"],
+    ans: 0
+  },
+  {
+    q: "How much free cloud storage space do iCloud and OneDrive provide?",
+    o: ["5 GB", "15 GB", "128 GB"],
+    ans: 0
+  },
+  {
+    q: "What is the maximum capacity listed for Optical Discs (BD / Blu-ray)?",
+    o: ["Up to 128 GB", "Up to 700 MB", "Up to 9 GB"],
+    ans: 0
+  },
+  {
+    q: "Which of these is classified as an Internal Drive in the lesson?",
+    o: ["HDD (Hard Disk Drive)", "USB Flash Drive", "SD Card / Micro SD"],
+    ans: 0
+  },
+  {
+    q: "What is the typical storage capacity range for a USB Flash Drive according to the chart?",
+    o: ["16 GB - 2 TB", "500 GB - 20 TB", "128 GB - 8 TB"],
+    ans: 0
+  },
+  {
+    q: "What is the storage capacity range listed for an Internal Solid State Drive (SSD)?",
+    o: ["128 GB - 8 TB", "16 GB - 2 TB", "Up to 700 MB"],
+    ans: 0
+  },
+  {
+    q: "How many Bytes make up 1 Kilobyte (KB)?",
+    o: ["1,024 Bytes", "8 Bytes", "1,000 Kilobytes"],
+    ans: 0
+  },
+  {
+    q: "How many bits are in a single Byte?",
+    o: ["8 bits", "1024 bits", "100 bits"],
+    ans: 0
+  },
+  {
+    q: "Which data unit is larger than a Megabyte (MB) but smaller than a Terabyte (TB)?",
+    o: ["Gigabyte (GB)", "Kilobyte (KB)", "Petabyte (PB)"],
+    ans: 0
+  },
+  {
+    q: "Arrange these data units from SMALLEST to LARGEST:",
+    o: ["Byte ➔ KB ➔ MB ➔ GB ➔ TB", "TB ➔ GB ➔ MB ➔ KB ➔ Byte", "KB ➔ Byte ➔ GB ➔ MB ➔ TB"],
+    ans: 0
+  },
+  {
+    q: "How many Megabytes (MB) are in 1 Gigabyte (GB)?",
+    o: ["1,024 MB", "100 MB", "8 MB"],
+    ans: 0
+  },
+  {
+    q: "What storage capacity range do Hard Disk Drives (HDD) and External Hard Disks share?",
+    o: ["500 GB - 20 TB", "16 GB - 2 TB", "5 GB - 15 GB"],
+    ans: 0
+  }
+];
+
+function shuffle(a){
+  for(var i=a.length-1; i>0; i--){
+    var j = Math.floor(Math.random()*(i+1));
+    var t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
+
+function buildQuestions(level){
+  var source = (level === 1) ? LEVEL_1_POOL : LEVEL_2_POOL;
+  var cloned = JSON.parse(JSON.stringify(source));
+  shuffle(cloned);
+  var selected = cloned.slice(0, QUESTIONS_PER_LEVEL);
+  
+  // Shuffle options for each question to guarantee freshness
+  selected.forEach(function(item){
+    var originalCorrectText = item.o[item.ans];
+    shuffle(item.o);
+    item.ans = item.o.indexOf(originalCorrectText);
+  });
+
+  return selected;
+}
+
+var idx = 0, score = 0, locked = false;
+var Q = [];
+var LETTERS = ["A","B","C"];
+
+/* ============ Audio ============ */
+var actx = null, muted = false;
+function ensureAudio(){
+  if(!actx){ try{ actx = new (window.AudioContext||window.webkitAudioContext)(); }catch(e){} }
+  if(actx && actx.state === "suspended"){ try{ actx.resume(); }catch(e){} }
+}
+function tone(f, t0, d, type, v){
+  if(!actx || muted) return;
+  var now = actx.currentTime + t0, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type || "sine";
+  o.frequency.setValueAtTime(f, now);
+  g.gain.setValueAtTime(0.0001, now);
+  g.gain.exponentialRampToValueAtTime(v || .14, now + .02);
+  g.gain.exponentialRampToValueAtTime(0.0001, now + d);
+  o.connect(g); g.connect(actx.destination);
+  o.start(now); o.stop(now + d + .05);
+}
+var sfx = {
+  ok: function(){ [523,659,784,1047].forEach(function(f,i){ tone(f, i*.08, .3, "triangle", .18); }); },
+  bad: function(){ tone(220,0,.18,"sawtooth",.12); tone(165,.15,.25,"sawtooth",.12); },
+  hop: function(){ tone(300,0,.08,"sine",.12); tone(500,.06,.1,"sine",.1); },
+  win: function(){ [523,659,784,1047,784,1047,1319,1568].forEach(function(f,i){ tone(f, i*.13, .34, "triangle", .2); }); }
+};
+
+/* ============ 3D World: Motherboard Lab Scene ============ */
+var world, STEP = 4.4, G = QUESTIONS_PER_LEVEL + 1;
+
+function buildWorld(){
+  if(typeof THREE === "undefined") return null;
+  var renderer;
+  try{ renderer = new THREE.WebGLRenderer({canvas:$("stage"), antialias:true}); }catch(e){ return null; }
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.shadowMap.enabled = true;
+
+  var scene = new THREE.Scene();
+  
+  // Cyber Motherboard Background Gradient
+  var sc = document.createElement("canvas"); sc.width = 4; sc.height = 256;
+  var sx = sc.getContext("2d"), gr = sx.createLinearGradient(0,0,0,256);
+  gr.addColorStop(0,"#050b14"); gr.addColorStop(.4,"#0a182b"); gr.addColorStop(1,"#0d1f38");
+  sx.fillStyle = gr; sx.fillRect(0,0,4,256);
+  scene.background = new THREE.CanvasTexture(sc);
+  scene.fog = new THREE.Fog(0x0a182b, 25, 95);
+
+  var camera = new THREE.PerspectiveCamera(55, 1, .1, 400);
+  camera.rotation.order = "YXZ";
+  var PITCH = .35, CAM_DIST = 15, CAM_HGT = 4.0;
+
+  // Lab Lighting
+  scene.add(new THREE.HemisphereLight(0x88e5ff, 0x051120, .85));
+  var sunL = new THREE.DirectionalLight(0x00f0ff, .9);
+  sunL.castShadow = true; sunL.shadow.mapSize.set(1024,1024);
+  var sh = sunL.shadow.camera; sh.left=-18; sh.right=18; sh.top=18; sh.bottom=-18; sh.near=1; sh.far=70;
+  scene.add(sunL); scene.add(sunL.target);
+  
+  var flashL = new THREE.PointLight(0x00f0ff, 0, 16);
+  scene.add(flashL);
+
+  function lam(c, flat){ return new THREE.MeshLambertMaterial({color:c, flatShading:!!flat}); }
+  function phong(c, s){ return new THREE.MeshPhongMaterial({color:c, shininess:s||40}); }
+  
+  function rng(seed){ return function(){ seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  var rand = rng(101);
+
+  // Path nodes across the PCB circuit
+  var nodes = [];
+  for(var i=0;i<=G;i++) nodes.push(new THREE.Vector3(Math.sin(i*.85)*3.2, 0, -i*STEP));
+
+  function distToPath(x,z){
+    var m = 1e9;
+    for(var i=0;i<nodes.length;i++){ var dx=nodes[i].x-x,dz=nodes[i].z-z; m=Math.min(m,Math.sqrt(dx*dx+dz*dz)); }
+    return m;
+  }
+
+  // --- Green PCB Board Ground ---
+  var pcbMat = phong(0x0d5c3a, 30);
+  var ground = new THREE.Mesh(new THREE.PlaneGeometry(500,500), pcbMat);
+  ground.rotation.x = -Math.PI/2; ground.position.z = -G*STEP/2; ground.receiveShadow = true;
+  scene.add(ground);
+
+  // Decorative Copper/Gold Circuit Traces on PCB
+  var traceMat = phong(0x38b000, 80);
+  for(var tr=0; tr<45; tr++){
+    var tx = (rand()-.5)*80, tz = 20 - rand()*(G*STEP+50);
+    if(distToPath(tx,tz) < 6) continue;
+    var tw = .3 + rand()*.5, tl = 4 + rand()*12;
+    var trace = new THREE.Mesh(new THREE.BoxGeometry(tw, .04, tl), traceMat);
+    trace.position.set(tx, .02, tz);
+    if(rand() > .5) trace.rotation.y = Math.PI/2;
+    scene.add(trace);
+  }
+
+  // Glowing Conductive Bus Trail connecting platforms
+  var busMat = phong(0x00f0ff, 100);
+  for(var t=0;t<G;t++){
+    var a = nodes[t], b = nodes[t+1], dx=b.x-a.x, dz=b.z-a.z, len=Math.sqrt(dx*dx+dz*dz);
+    var seg = new THREE.Mesh(new THREE.BoxGeometry(1.0, .1, len), busMat);
+    seg.position.set((a.x+b.x)/2, .05, (a.z+b.z)/2); seg.rotation.y = Math.atan2(dx,dz); seg.receiveShadow = true;
+    scene.add(seg);
+  }
+
+  // Motherboard Chip Platforms
+  function numTex(n, col){
+    var c = document.createElement("canvas"); c.width = c.height = 128;
+    var x = c.getContext("2d");
+    x.fillStyle = "#" + ("000000"+col.toString(16)).slice(-6);
+    x.fillRect(0,0,128,128);
+    x.lineWidth = 10; x.strokeStyle = "#00f0ff"; x.strokeRect(6,6,116,116);
+    x.fillStyle = "#ffffff"; x.font = "bold 68px Arial, sans-serif"; x.textAlign = "center"; x.textBaseline = "middle";
+    x.fillText(String(n), 64, 68);
+    return new THREE.CanvasTexture(c);
+  }
+
+  function platform(i){
+    var n = nodes[i], isG = i === G, r = isG ? 3.2 : 1.5;
+    var g = new THREE.Group(); g.position.set(n.x,0,n.z);
+    var col = isG ? 0x00c8ff : 0x1a3352;
+    
+    // Square Microchip Base
+    var body = new THREE.Mesh(new THREE.BoxGeometry(r*2, .5, r*2), phong(col, 60));
+    body.position.y = .25; body.castShadow = true; body.receiveShadow = true; g.add(body);
+    
+    // Metallic Pins on sides of chip
+    var pinMat = phong(0xd4af37, 90);
+    for(var p=-1; p<=1; p+=0.6){
+      var pin1 = new THREE.Mesh(new THREE.BoxGeometry(.2, .15, .4), pinMat);
+      pin1.position.set(p*(r*.7), .15, r + .15); g.add(pin1);
+      var pin2 = pin1.clone(); pin2.position.z = -r - .15; g.add(pin2);
+    }
+
+    var top = new THREE.Mesh(new THREE.BoxGeometry(r*1.7, .06, r*1.7), phong(0x0f2238, 40));
+    top.position.y = .52; top.receiveShadow = true; g.add(top);
+    
+    if(i >= 1 && i <= QUESTIONS_PER_LEVEL){
+      var dMat = new THREE.MeshBasicMaterial({map:numTex(i, col)});
+      var d = new THREE.Mesh(new THREE.PlaneGeometry(r*1.3, r*1.3), dMat);
+      d.rotation.x = -Math.PI/2; d.position.y = .56; g.add(d);
+    }
+    scene.add(g); return g;
+  }
+  var plats = []; for(var k=0;k<=G;k++) plats.push(platform(k));
+
+  // --- Motherboard Lab Props (Storage drives & Capacitors) ---
+  function storageDriveProp(x,z){
+    var g = new THREE.Group(); g.position.set(x,0,z);
+    var body = new THREE.Mesh(new THREE.BoxGeometry(2.2, .4, 3.2), phong(0x223344, 80));
+    body.position.y = .2; body.castShadow = true; g.add(body);
+    var label = new THREE.Mesh(new THREE.BoxGeometry(1.8, .02, 2.2), phong(0x00a8ff, 40));
+    label.position.set(0, .41, 0); g.add(label);
+    scene.add(g);
+  }
+
+  function capacitor(x,z,s){
+    var g = new THREE.Group(); g.position.set(x,0,z);
+    var cap = new THREE.Mesh(new THREE.CylinderGeometry(.6*s, .6*s, 2*s, 16), phong(0x223344, 70));
+    cap.position.y = s; cap.castShadow = true; g.add(cap);
+    var top = new THREE.Mesh(new THREE.CylinderGeometry(.58*s, .58*s, .05*s, 16), phong(0xc0c0c0, 90));
+    top.position.y = 2*s + .02; g.add(top);
+    scene.add(g);
+  }
+
+  function cpuCooler(x,z){
+    var g = new THREE.Group(); g.position.set(x,0,z);
+    var sink = new THREE.Mesh(new THREE.BoxGeometry(3.5, 1.8, 3.5), phong(0xaaaaaa, 90));
+    sink.position.y = .9; sink.castShadow = true; g.add(sink);
+    var fan = new THREE.Mesh(new THREE.CylinderGeometry(1.4, 1.4, .3, 16), phong(0x00f0ff, 50));
+    fan.position.y = 1.95; g.add(fan);
+    scene.add(g);
+  }
+
+  // Populate Motherboard Environment
+  for(var zz=12; zz>-(G*STEP)-25; zz-=6){
+    [-1,1].forEach(function(side){
+      var x = side*(7+rand()*10), z = zz+(rand()-.5)*3;
+      if(distToPath(x,z) < 5.5) return;
+      var type = rand();
+      if(type < .4) storageDriveProp(x,z);
+      else if(type < .75) capacitor(x,z, .8+rand()*.6);
+      else cpuCooler(x,z);
+    });
+  }
+
+  // --- Cute PC Character "Chip" ---
+  var marker = new THREE.Group(), inner = new THREE.Group(); marker.add(inner); scene.add(marker);
+  
+  var pcCaseMat = phong(0x1a293d, 80);
+  var pcBezelMat = phong(0x0d1520, 90);
+  var pcFaceMat = phong(0x050b14);
+  var eyeMat = new THREE.MeshBasicMaterial({color:0x00f0ff});
+  var mouthMat = new THREE.MeshBasicMaterial({color:0x00f0ff});
+  var pcStandMat = phong(0x3a5270);
+
+  // PC Monitor Head
+  var monitorCase = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.95, 0.5), pcCaseMat);
+  monitorCase.position.y = 1.0; monitorCase.castShadow = true; inner.add(monitorCase);
+
+  var bezel = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.8, 0.05), pcBezelMat);
+  bezel.position.set(0, 1.0, 0.24); inner.add(bezel);
+
+  var screenFace = new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.7), pcFaceMat);
+  screenFace.position.set(0, 1.0, 0.27); inner.add(screenFace);
+
+  // Cute Glowing Eyes on Screen
+  var eyeL = new THREE.Mesh(new THREE.SphereGeometry(0.08, 16, 16), eyeMat);
+  eyeL.scale.set(1, 1.3, 0.3); eyeL.position.set(-0.22, 1.05, 0.28); inner.add(eyeL);
+  var eyeR = eyeL.clone(); eyeR.position.x = 0.22; inner.add(eyeR);
+
+  // Cute Mouth
+  var mouth = new THREE.Mesh(new THREE.TorusGeometry(0.06, 0.02, 8, 16, Math.PI), mouthMat);
+  mouth.rotation.z = Math.PI; mouth.position.set(0, 0.92, 0.28); inner.add(mouth);
+
+  // Antenna on top
+  var antennaPole = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.3), pcStandMat);
+  antennaPole.position.set(0, 1.6, 0); inner.add(antennaPole);
+  var antennaBall = new THREE.Mesh(new THREE.SphereGeometry(0.08, 12, 12), new THREE.MeshBasicMaterial({color:0x00f0ff}));
+  antennaBall.position.set(0, 1.78, 0); inner.add(antennaBall);
+
+  // Stand / Neck
+  var neck = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.2), pcStandMat);
+  neck.position.set(0, 0.45, 0); inner.add(neck);
+
+  // Base / Feet
+  var feet = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.5), pcStandMat);
+  feet.position.set(0, 0.32, 0); feet.castShadow = true; inner.add(feet);
+
+  var base = nodes[0].clone(); marker.position.set(base.x, 0.1, base.z);
+
+  // Confetti particles
+  var parts = [], confGeo = new THREE.PlaneGeometry(.25,.14), confMats = [0x00f0ff,0x3cb4ff,0x20e371,0xffd700,0xb07cff].map(function(c){ return new THREE.MeshBasicMaterial({color:c, side:THREE.DoubleSide, fog:false}); });
+  function spawnConfetti(pos){
+    var m=new THREE.Mesh(confGeo, confMats[Math.floor(Math.random()*5)]); m.position.copy(pos);
+    parts.push({m:m, v:new THREE.Vector3((Math.random()-.5)*2.5, -1-Math.random()*1.5, (Math.random()-.5)*2.5), s:new THREE.Vector3(Math.random()*6,Math.random()*6,Math.random()*6), life:3+Math.random()*1.5});
+    scene.add(m);
+  }
+
+  var mode="intro", time=0, hop=null, land=0, cheerT=0, wob=0, flashT=0;
+
+  function resize(){ var w=window.innerWidth, h=window.innerHeight; renderer.setSize(w,h,false); camera.aspect=w/h; camera.updateProjectionMatrix(); }
+  window.addEventListener("resize", resize); resize();
+
+  var clock = new THREE.Clock(), ideal=new THREE.Vector3(), off=new THREE.Vector3();
+  function loop(){
+    var dt = Math.min(clock.getDelta(), .05); time += dt;
+
+    // Antenna pulse animation
+    antennaBall.position.y = 1.78 + Math.sin(time*6)*0.03;
+
+    if(hop){
+      hop.t += dt/.85; var k=Math.min(hop.t,1), e=k*k*(3-2*k);
+      marker.position.x=hop.from.x+(hop.to.x-hop.from.x)*e; marker.position.z=hop.from.z+(hop.to.z-hop.from.z)*e; marker.position.y=.1+Math.sin(Math.PI*k)*1.5;
+      var st=1+.2*Math.sin(Math.PI*k); inner.scale.set(1/Math.sqrt(st), st, 1/Math.sqrt(st));
+      if(k>=1){ var cb=hop.cb; hop=null; land=.28; marker.position.y=.1; if(cb)cb(); }
+    } else {
+      var bob=Math.sin(time*2.4)*.04, sq=1, jump=0;
+      if(land>0){ land-=dt; sq=1-.2*Math.sin(Math.PI*(1-Math.max(land,0)/.28)); }
+      if(cheerT>0){ cheerT-=dt; var ck=1-cheerT/.8; jump=Math.abs(Math.sin(ck*Math.PI*2))*.7; inner.rotation.y=ck*Math.PI*2; if(cheerT<=0)inner.rotation.y=0; }
+      marker.position.y=.1+jump+bob*(jump?0:1); inner.scale.set(1/Math.sqrt(sq), sq, 1/Math.sqrt(sq));
+    }
+    if(wob>0){ wob-=dt; inner.rotation.z=Math.sin(time*45)*.24*Math.max(wob,0)/.5; if(wob<=0)inner.rotation.z=0; }
+    
+    // Camera Tracking
+    if(mode==="intro") ideal.set(marker.position.x+(reduce?0:Math.sin(time*.35)*10), CAM_HGT, marker.position.z+CAM_DIST);
+    else ideal.set(marker.position.x, CAM_HGT, marker.position.z+CAM_DIST);
+    camera.position.lerp(ideal, 1-Math.exp(-3*dt)); camera.rotation.set(-PITCH, 0, 0);
+
+    // Sun/Lighting
+    off.set(-13,7.5,-80); sunL.position.set(marker.position.x-10, 18, marker.position.z+8); sunL.target.position.copy(marker.position); sunL.target.updateMatrixWorld();
+    
+    if(flashT>0){ flashT-=dt; flashL.intensity=Math.max(0,flashT)/.7*2.5; flashL.position.set(marker.position.x, 2.5, marker.position.z+1); } else flashL.intensity=0;
+    
+    // Confetti particles
+    for(var pI=parts.length-1; pI>=0; pI--){
+      var pp=parts[pI]; pp.life-=dt; if(pp.life<=0){ scene.remove(pp.m); parts.splice(pI,1); continue; }
+      pp.m.position.addScaledVector(pp.v, dt); pp.v.y-=.6*dt; pp.m.rotation.x+=pp.s.x*dt; pp.m.rotation.y+=pp.s.y*dt; pp.m.rotation.z+=pp.s.z*dt; pp.m.scale.setScalar(Math.min(1, pp.life/.45));
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(loop);
+  }
+  ideal.copy(marker.position).add(new THREE.Vector3(0,CAM_HGT,CAM_DIST)); camera.position.copy(ideal); loop();
+
+  return {
+    play:function(){ mode="play"; },
+    hopTo:function(i, cb){ var to=nodes[i].clone(); to.y=0; hop={t:0, from:new THREE.Vector3(marker.position.x,0,marker.position.z), to:to, cb:cb}; },
+    burst:function(){ for(var i=0;i<25;i++) spawnConfetti(new THREE.Vector3(marker.position.x+(Math.random()-.5)*2, marker.position.y+Math.random()*3, marker.position.z+(Math.random()-.5)*1.5)); },
+    pulse:function(color){ flashL.color.setHex(color); flashT=.7; },
+    cheer:function(){ cheerT=.8; },
+    wobble:function(){ wob=.5; },
+    reset:function(){ hop=null; marker.position.set(nodes[0].x,.1,nodes[0].z); mode="play"; inner.rotation.set(0,0,0); inner.scale.set(1,1,1); }
+  };
+}
+
+world = buildWorld() || {play:function(){}, burst:function(){}, pulse:function(){}, cheer:function(){}, wobble:function(){}, reset:function(){}, hopTo:function(i,cb){setTimeout(cb,500);}};
+
+/* ============ Game Interface ============ */
+var card = $("card"), qtext = $("qtext"), opts = $("opts"), statusEl = $("status"), scoreEl = $("score"), scoreChip = $("scoreChip"), progText = $("progText"), progFill = $("progFill"), progBar = $("progBar"), toastEl = $("toast"), flashEl = $("flash"), hud = $("hud");
+
+function retrigger(el, cls){ el.classList.remove(cls); void el.offsetWidth; el.classList.add(cls); }
+
+function renderQ(){
+  var q = Q[idx]; locked = false;
+  qtext.textContent = q.q;
+  progText.textContent = "Level " + currentLevel + " - Q" + (idx+1) + "/" + QUESTIONS_PER_LEVEL;
+  progBar.setAttribute("aria-valuenow", String(idx));
+  progFill.style.width = (idx/QUESTIONS_PER_LEVEL*100) + "%";
+  statusEl.textContent = ""; statusEl.className = "status";
+  opts.innerHTML = "";
+  
+  q.o.forEach(function(ot, i){
+    var b = document.createElement("button"); b.type="button"; b.className="opt";
+    var bd=document.createElement("span"); bd.className="badge"; bd.textContent=LETTERS[i];
+    var tx=document.createElement("span"); tx.textContent=ot; b.appendChild(bd); b.appendChild(tx);
+    b.addEventListener("click", function(){ pick(b, i); });
+    opts.appendChild(b);
+  });
+  card.scrollTop = 0; requestAnimationFrame(function(){ card.classList.remove("away"); });
+}
+
+function pick(btn, pickedIdx){
+  if(locked) return; ensureAudio();
+  locked = true;
+  
+  var correct = pickedIdx === Q[idx].ans;
+  var allButtons = opts.querySelectorAll("button");
+  
+  // Disable all options immediately once chosen
+  Array.prototype.forEach.call(allButtons, function(b){ b.disabled = true; });
+
+  // Highlight the correct answer
+  allButtons[Q[idx].ans].classList.add("good");
+
+  if(correct){
+    score += 10; scoreEl.textContent = score; retrigger(scoreChip, "bump");
+    statusEl.textContent = "Awesome job! +10 Points"; statusEl.className = "status ok";
+    toastEl.textContent = "GREAT JOB!";
+    toastEl.className = "toast show";
+    sfx.ok(); retrigger(flashEl, "ok");
+    world.burst(); world.pulse(0x20e371); world.cheer();
+  } else {
+    btn.classList.add("bad");
+    statusEl.textContent = "Nice try! The correct answer is highlighted in green."; statusEl.className = "status bad";
+    toastEl.textContent = "KEEP GOING!";
+    toastEl.className = "toast show bad-toast";
+    sfx.bad(); retrigger(flashEl, "bad"); retrigger(card, "shake");
+    world.pulse(0xff5252); world.wobble();
+  }
+
+  progFill.style.width = ((idx+1)/QUESTIONS_PER_LEVEL*100) + "%"; 
+  progBar.setAttribute("aria-valuenow", String(idx+1));
+
+  setTimeout(nextQ, 2200);
+}
+
+function nextQ(){
+  card.classList.add("away");
+  setTimeout(function(){
+    sfx.hop();
+    world.hopTo(idx+1, function(){
+      idx++;
+      if(idx < QUESTIONS_PER_LEVEL) renderQ(); else finishLevel();
+    });
+  }, 300);
+}
+
+function finishLevel(){
+  hud.classList.remove("on"); card.hidden = true;
+  if(currentLevel === 1){
+    $("winTitle").textContent = "LEVEL 1 CLEARED!";
+    $("winSub").textContent = "You mastered Hardware & Input/Output Devices!";
+    $("finalScore").textContent = "Current Score: " + score + " / 100";
+    $("again").textContent = "START LEVEL 2";
+  } else {
+    $("winTitle").textContent = "MISSION ACCOMPLISHED!";
+    $("winSub").textContent = "You are a Storage & Data Unit Genius!";
+    $("finalScore").textContent = "Final Game Score: " + score + " / 200";
+    $("again").textContent = "PLAY AGAIN";
+  }
+  sfx.win(); $("winPanel").hidden = false;
+}
+
+$("go").addEventListener("click", function(){ 
+  ensureAudio(); $("startPanel").hidden=true; hud.classList.add("on"); 
+  card.hidden=false; card.classList.add("away"); world.play(); 
+  Q = buildQuestions(currentLevel);
+  renderQ(); 
+});
+
+$("again").addEventListener("click", function(){
+  ensureAudio();
+  if(currentLevel === 1){
+    currentLevel = 2;
+    idx = 0;
+    $("winPanel").hidden=true; card.hidden=false; card.classList.add("away");
+    hud.classList.add("on"); world.reset();
+    Q = buildQuestions(currentLevel);
+    renderQ();
+  } else {
+    // Reset back to Level 1
+    currentLevel = 1;
+    idx = 0; score = 0; scoreEl.textContent = "0";
+    $("winPanel").hidden=true; card.hidden=false; card.classList.add("away");
+    hud.classList.add("on"); world.reset();
+    Q = buildQuestions(currentLevel);
+    renderQ();
+  }
+});
+
+$("snd").addEventListener("click", function(){ 
+  muted=!muted; this.textContent=muted?"🔇":"🔊"; this.setAttribute("aria-pressed", String(muted)); 
+  if(!muted){ensureAudio();tone(660,0,.12,"sine",.12);} 
+});
+})();
+</script>
+</body>
+</html>
